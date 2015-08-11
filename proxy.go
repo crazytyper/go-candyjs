@@ -2,6 +2,7 @@ package candyjs
 
 import "C"
 import (
+	"encoding/json"
 	"errors"
 	"reflect"
 )
@@ -40,7 +41,11 @@ func (p *proxy) set(t interface{}, k string, v, recv interface{}) (bool, error) 
 
 	value := reflect.Zero(f.Type())
 	if v != nil {
-		value = reflect.ValueOf(castNumberToGoType(f.Kind(), v))
+		v, err = convert(f, v)
+		if err != nil {
+			return false, nil
+		}
+		value = reflect.ValueOf(v)
 	}
 
 	f.Set(value)
@@ -156,7 +161,36 @@ func (p *proxy) getPropertyNames(t interface{}) ([]string, error) {
 	return names, nil
 }
 
-func castNumberToGoType(k reflect.Kind, v interface{}) interface{} {
+func convert(t reflect.Value, value interface{}) (interface{}, error) {
+
+	s := reflect.ValueOf(value)
+	if t.Type() == s.Type() {
+		return value, nil // no conversion required
+	}
+
+	value, ok := castNumberToGoType(t.Kind(), value)
+	if ok {
+		return value, nil
+	}
+
+	return convertUsingJSON(t, value)
+}
+
+func convertUsingJSON(t reflect.Value, value interface{}) (interface{}, error) {
+
+	tv := reflect.New(t.Type()).Interface()
+	js, err := json.Marshal(value)
+	if err == nil {
+		err = json.Unmarshal([]byte(js), tv)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return reflect.ValueOf(tv).Elem().Interface(), nil
+}
+
+func castNumberToGoType(k reflect.Kind, v interface{}) (interface{}, bool) {
 	switch k {
 	case reflect.Int:
 		v = int(v.(float64))
@@ -180,7 +214,9 @@ func castNumberToGoType(k reflect.Kind, v interface{}) interface{} {
 		v = uint64(v.(float64))
 	case reflect.Float32:
 		v = float32(v.(float64))
+	default:
+		return v, false
 	}
 
-	return v
+	return v, true
 }
