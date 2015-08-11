@@ -73,7 +73,7 @@ func (ctx *Context) PushGlobalType(name string, s interface{}) int {
 
 // PushType push a constructor for the type of the given value, this constructor
 // returns an empty instance of the type. The value passed is discarded, only
-// is used for retrieve the time, instead of require pass a `reflect.Type`.
+// is used for retrieve the type, instead of require pass a `reflect.Type`.
 func (ctx *Context) PushType(s interface{}) int {
 	return ctx.PushGoFunction(func() {
 		value := reflect.New(reflect.TypeOf(s))
@@ -96,7 +96,13 @@ func (ctx *Context) PushGlobalProxy(name string, v interface{}) int {
 // the exact same methods and properties from the original value.
 // http://duktape.org/guide.html#virtualization-proxy-object
 func (ctx *Context) PushProxy(v interface{}) int {
+
 	ptr := ctx.storage.add(v)
+
+	proxy, ok := v.(Proxy)
+	if !ok {
+		proxy = p // fallback to the default proxy that uses package reflect
+	}
 
 	obj := ctx.PushObject()
 	ctx.PushPointer(ptr)
@@ -107,15 +113,15 @@ func (ctx *Context) PushProxy(v interface{}) int {
 	ctx.Dup(obj)
 
 	ctx.PushObject()
-	ctx.PushGoFunction(p.enumerate)
+	ctx.PushGoFunction(proxy.Enumerate)
 	ctx.PutPropString(-2, "enumerate")
-	ctx.PushGoFunction(p.enumerate)
+	ctx.PushGoFunction(proxy.Enumerate)
 	ctx.PutPropString(-2, "ownKeys")
-	ctx.PushGoFunction(p.get)
+	ctx.PushGoFunction(proxy.Get)
 	ctx.PutPropString(-2, "get")
-	ctx.PushGoFunction(p.set)
+	ctx.PushGoFunction(proxy.Set)
 	ctx.PutPropString(-2, "set")
-	ctx.PushGoFunction(p.has)
+	ctx.PushGoFunction(proxy.Has)
 	ctx.PutPropString(-2, "has")
 	ctx.New(2)
 

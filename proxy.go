@@ -13,14 +13,22 @@ var ErrUndefinedProperty = errors.New("undefined property")
 
 var p = &proxy{}
 
+// Proxy defines the GO interface for ECMASCRIPTs proxy objects.
+type Proxy interface {
+	Has(t interface{}, k string) bool
+	Get(t interface{}, k string, recv interface{}) (interface{}, error)
+	Set(t interface{}, k string, v, recv interface{}) (bool, error)
+	Enumerate(t interface{}) (interface{}, error)
+}
+
 type proxy struct{}
 
-func (p *proxy) has(t interface{}, k string) bool {
+func (p *proxy) Has(t interface{}, k string) bool {
 	_, err := p.getProperty(t, k)
 	return err != ErrUndefinedProperty
 }
 
-func (p *proxy) get(t interface{}, k string, recv interface{}) (interface{}, error) {
+func (p *proxy) Get(t interface{}, k string, recv interface{}) (interface{}, error) {
 	f, err := p.getProperty(t, k)
 	if err != nil {
 		return nil, err
@@ -29,7 +37,7 @@ func (p *proxy) get(t interface{}, k string, recv interface{}) (interface{}, err
 	return f.Interface(), nil
 }
 
-func (p *proxy) set(t interface{}, k string, v, recv interface{}) (bool, error) {
+func (p *proxy) Set(t interface{}, k string, v, recv interface{}) (bool, error) {
 	f, err := p.getProperty(t, k)
 	if err != nil {
 		return false, err
@@ -121,7 +129,7 @@ func (p *proxy) getMethod(key string, v reflect.Value) (reflect.Value, bool) {
 	return r, r.IsValid()
 }
 
-func (p *proxy) enumerate(t interface{}) (interface{}, error) {
+func (p *proxy) Enumerate(t interface{}) (interface{}, error) {
 	return p.getPropertyNames(t)
 }
 

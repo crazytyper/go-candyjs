@@ -5,12 +5,12 @@ import (
 )
 
 func (s *CandySuite) TestProxy_Has(c *C) {
-	c.Assert(p.has(&MyStruct{Int: 42}, "int"), Equals, true)
-	c.Assert(p.has(&MyStruct{Int: 42}, "Int"), Equals, false)
+	c.Assert(p.Has(&MyStruct{Int: 42}, "int"), Equals, true)
+	c.Assert(p.Has(&MyStruct{Int: 42}, "Int"), Equals, false)
 }
 
 func (s *CandySuite) TestProxy_Get(c *C) {
-	v, err := p.get(&MyStruct{Int: 42}, "int", nil)
+	v, err := p.Get(&MyStruct{Int: 42}, "int", nil)
 	c.Assert(err, IsNil)
 	c.Assert(v, Equals, 42)
 }
@@ -39,17 +39,17 @@ func (s *CandySuite) TestProxy_Set(c *C) {
 func (s *CandySuite) testProxy_Set(c *C, key, set, get interface{}) {
 	t := &MyStruct{}
 
-	setted, err := p.set(t, key.(string), set, nil)
+	setted, err := p.Set(t, key.(string), set, nil)
 	c.Assert(err, IsNil)
 	c.Assert(setted, Equals, true)
 
-	v, err := p.get(t, key.(string), nil)
+	v, err := p.Get(t, key.(string), nil)
 	c.Assert(err, IsNil)
 	c.Assert(v, Equals, get)
 }
 
 func (s *CandySuite) TestProxy_Enumerate(c *C) {
-	keys, err := p.enumerate(&MyStruct{Int: 42})
+	keys, err := p.Enumerate(&MyStruct{Int: 42})
 	c.Assert(err, IsNil)
 	c.Assert(keys, DeepEquals, []string{
 		"bool", "int", "int8", "int16", "int32", "int64", "uInt", "uInt8",
@@ -59,7 +59,7 @@ func (s *CandySuite) TestProxy_Enumerate(c *C) {
 }
 
 func (s *CandySuite) TestProxy_SetOnFunction(c *C) {
-	setted, err := p.set(&MyStruct{Int: 21}, "multiply", 42.0, nil)
+	setted, err := p.Set(&MyStruct{Int: 21}, "multiply", 42.0, nil)
 	c.Assert(err, IsNil)
 	c.Assert(setted, Equals, false)
 }
@@ -78,7 +78,7 @@ func (s *CandySuite) TestProxy_Properties(c *C) {
 }
 
 func (s *CandySuite) testProxyProperties(c *C, value, key, expected interface{}) {
-	val, err := p.get(value, key.(string), nil)
+	val, err := p.Get(value, key.(string), nil)
 	c.Assert(err, IsNil)
 	c.Assert(val, Equals, expected)
 }
@@ -97,7 +97,7 @@ func (s *CandySuite) TestProxy_Functions(c *C) {
 }
 
 func (s *CandySuite) testProxyFunction(c *C, value, key interface{}) {
-	val, err := p.get(value, key.(string), nil)
+	val, err := p.Get(value, key.(string), nil)
 	c.Assert(err, IsNil)
 	c.Assert(val, NotNil)
 }

@@ -492,6 +492,29 @@ func (s *CandySuite) TestPushGlobalGoFunction_Error(c *C) {
 	c.Assert(s.stored, Equals, true)
 }
 
+func (s *CandySuite) TestCustomProxy(c *C) {
+	customProxy := &myCustomProxy{values: map[string]interface{}{
+		"name":     "John",
+		"shoeSize": 40,
+		"dob":      time.Date(1980, 7, 31, 0, 0, 0, 0, time.UTC),
+	}}
+	s.ctx.PushGlobalProxy("customProxy", customProxy)
+
+	c.Assert(s.ctx.PevalString(`
+		customProxy.name += " Doe"
+		customProxy.shoeSize += 2.5
+		customProxy.dob = new Date(Date.UTC(1984, 5, 30))
+	`), IsNil)
+
+	c.Assert(customProxy.calls, DeepEquals, []string{
+		"get(name)", "set(name,John Doe)",
+		"get(shoeSize)", "set(shoeSize,42.5)",
+		"set(dob,1984-06-30T00:00:00.000Z)"})
+	c.Assert(customProxy.values["name"], Equals, "John Doe")
+	c.Assert(customProxy.values["shoeSize"], Equals, 42.5)
+	c.Assert(customProxy.values["dob"], Equals, "1984-06-30T00:00:00.000Z")
+}
+
 func (s *CandySuite) TearDownTest(c *C) {
 	s.ctx.DestroyHeap()
 }
@@ -524,4 +547,35 @@ func (m *MyStruct) Multiply(x int) int {
 
 func (m *MyStruct) privateMethod() int {
 	return 1
+}
+
+type myCustomProxy struct {
+	values map[string]interface{}
+	calls  []string
+	Name   string `json:"name"`
+}
+
+func (p *myCustomProxy) Has(t interface{}, k string) bool {
+	p.calls = append(p.calls, fmt.Sprintf("has(%s)", k))
+	return true
+}
+
+func (p *myCustomProxy) Get(t interface{}, k string, recv interface{}) (interface{}, error) {
+	p.calls = append(p.calls, fmt.Sprintf("get(%s)", k))
+	return p.values[k], nil
+}
+
+func (p *myCustomProxy) Set(t interface{}, k string, v, recv interface{}) (bool, error) {
+	p.calls = append(p.calls, fmt.Sprintf("set(%s,%v)", k, v))
+	p.values[k] = v
+	return true, nil
+}
+
+func (p *myCustomProxy) Enumerate(t interface{}) (interface{}, error) {
+	keys := []string{}
+	for key := range p.values {
+		keys = append(keys, key)
+	}
+	p.calls = append(p.calls, "enumerate()")
+	return keys, nil
 }
