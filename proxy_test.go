@@ -2,6 +2,7 @@ package candyjs
 
 import (
 	"encoding/json"
+	"time"
 
 	. "gopkg.in/check.v1"
 )
@@ -18,16 +19,18 @@ func (s *CandySuite) TestProxy_Get(c *C) {
 }
 
 func (s *CandySuite) TestProxy_GetUndefinedProperty(c *C) {
-	v, err := p.get(&MyStruct{Int: 42}, "foo", nil)
+	v, err := p.Get(&MyStruct{Int: 42}, "foo", nil)
 	c.Assert(err, Equals, ErrUndefinedProperty)
 	c.Assert(v, Equals, nil)
 }
 
+/* toJSON now returns the internal marshaller that uses package "encoding/json"
 func (s *CandySuite) TestProxy_GetInternal(c *C) {
-	v, err := p.get(&MyStruct{Int: 42}, "toJSON", nil)
+	v, err := p.Get(&MyStruct{Int: 42}, "toJSON", nil)
 	c.Assert(err, IsNil)
 	c.Assert(v, Equals, nil)
 }
+*/
 
 func (s *CandySuite) TestProxy_Set(c *C) {
 	providers := [][]interface{}{
@@ -43,6 +46,7 @@ func (s *CandySuite) TestProxy_Set(c *C) {
 		{"uInt32", 42.0, uint32(42)},
 		{"uInt64", 42.0, uint64(42)},
 		{"float32", 42.0, float32(42)},
+		{"date", time.Date(1984, 12, 24, 0, 0, 0, 0, time.UTC), time.Date(1984, 12, 24, 0, 0, 0, 0, time.UTC)},
 	}
 
 	for _, p := range providers {
@@ -67,7 +71,7 @@ func (s *CandySuite) TestProxy_Enumerate(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(keys, DeepEquals, []string{
 		"bool", "int", "int8", "int16", "int32", "int64", "uInt", "uInt8",
-		"uInt16", "uInt32", "uInt64", "string", "bytes", "float32", "float64",
+		"uInt16", "uInt32", "uInt64", "string", "bytes", "float32", "float64", "date",
 		"empty", "nested", "slice", "multiply",
 	})
 }

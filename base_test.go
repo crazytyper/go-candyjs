@@ -389,6 +389,16 @@ func (s *CandySuite) TestPushGlobalGoFunction_Nil(c *C) {
 	c.Assert(cst, DeepEquals, "")
 }
 
+func (s *CandySuite) TestPushGlobalGoFunction_Date(c *C) {
+	var called interface{}
+	s.ctx.PushGlobalGoFunction("test_in_date", func(d time.Time) {
+		called = d
+	})
+
+	s.ctx.EvalString("test_in_date(new Date(Date.UTC(1999,9,19)))")
+	c.Assert(called, Equals, time.Date(1999, 10, 19, 0, 0, 0, 0, time.UTC))
+}
+
 func (s *CandySuite) TestPushGlobalGoFunction_Optional(c *C) {
 	var cm, cs, ci, cst interface{}
 	s.ctx.PushGlobalGoFunction("test_optional", func(m map[string]interface{}, s []interface{}, i int, st string) {
@@ -492,6 +502,32 @@ func (s *CandySuite) TestPushGlobalGoFunction_Error(c *C) {
 	c.Assert(s.stored, Equals, true)
 }
 
+func (s *CandySuite) TestJsonEncode(c *C) {
+	ms := &MyStruct{Date: time.Date(1984, 12, 24, 0, 0, 0, 0, time.UTC), Int: 142, Float64: 3.141596254}
+	s.ctx.PushGlobalProxy("test", ms)
+
+	cases := []string{
+		// serialize proxy directly
+		`test`,
+		// serialize object containing nested proxies
+		`({ date: test.date, int: test.int, float64: test.float64 })`,
+		// serialize proxy directly.
+		`(function() {
+			test.date = new Date(Date.UTC(1984,11,24))
+			return test
+		})()`}
+	for _, cs := range cases {
+		c.Assert(s.ctx.PevalString(cs), IsNil)
+
+		js := s.ctx.JsonEncode(-1)
+		s.ctx.Pop()
+
+		c.Assert(js, Matches, ".*\"date\":\"1984-12-24T00:00:00Z\".*")
+		c.Assert(js, Matches, ".*\"int\":142.*")
+		c.Assert(js, Matches, ".*\"float64\":3.141596254.*")
+	}
+}
+
 func (s *CandySuite) TestCustomProxy(c *C) {
 	customProxy := &myCustomProxy{values: map[string]interface{}{
 		"name":     "John",
@@ -503,16 +539,19 @@ func (s *CandySuite) TestCustomProxy(c *C) {
 	c.Assert(s.ctx.PevalString(`
 		customProxy.name += " Doe"
 		customProxy.shoeSize += 2.5
-		customProxy.dob = new Date(Date.UTC(1984, 5, 30))
+
+		var d = new Date(customProxy.dob.unix() * 1000)
+		d.setFullYear(1984)
+		customProxy.dob = d
 	`), IsNil)
 
 	c.Assert(customProxy.calls, DeepEquals, []string{
 		"get(name)", "set(name,John Doe)",
 		"get(shoeSize)", "set(shoeSize,42.5)",
-		"set(dob,1984-06-30T00:00:00.000Z)"})
+		"get(dob)", "set(dob,1984-07-31T00:00:00.000Z)"})
 	c.Assert(customProxy.values["name"], Equals, "John Doe")
 	c.Assert(customProxy.values["shoeSize"], Equals, 42.5)
-	c.Assert(customProxy.values["dob"], Equals, "1984-06-30T00:00:00.000Z")
+	c.Assert(customProxy.values["dob"], Equals, "1984-07-31T00:00:00.000Z")
 }
 
 func (s *CandySuite) TearDownTest(c *C) {
@@ -520,24 +559,25 @@ func (s *CandySuite) TearDownTest(c *C) {
 }
 
 type MyStruct struct {
-	Bool    bool
-	Int     int
-	Int8    int8
-	Int16   int16
-	Int32   int32
-	Int64   int64
-	UInt    uint
-	UInt8   uint8
-	UInt16  uint16
-	UInt32  uint32
-	UInt64  uint64
-	String  string
-	Bytes   []byte
-	Float32 float32
-	Float64 float64
-	Empty   *MyStruct
-	Nested  *MyStruct
-	Slice   []int
+	Bool    bool      `json:"bool"`
+	Int     int       `json:"int"`
+	Int8    int8      `json:"int8"`
+	Int16   int16     `json:"int16"`
+	Int32   int32     `json:"int32"`
+	Int64   int64     `json:"int64"`
+	UInt    uint      `json:"uInt"`
+	UInt8   uint8     `json:"uInt8"`
+	UInt16  uint16    `json:"uInt16"`
+	UInt32  uint32    `json:"uInt32"`
+	UInt64  uint64    `json:"uInt64"`
+	String  string    `json:"string"`
+	Bytes   []byte    `json:"bytes"`
+	Float32 float32   `json:"float32"`
+	Float64 float64   `json:"float64"`
+	Date    time.Time `json:"date"`
+	Empty   *MyStruct `json:"empty"`
+	Nested  *MyStruct `json:"nested"`
+	Slice   []int     `json:"slice"`
 	private int
 }
 

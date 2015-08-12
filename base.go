@@ -363,6 +363,28 @@ func (ctx *Context) PushGoFunction(f interface{}) int {
 	return ctx.Context.PushGoFunction(ctx.wrapFunction(f))
 }
 
+// GetValue gets and marshals the value at the specified stack index.
+// Takes special care for proxies.
+func (ctx *Context) GetValue(index int, value interface{}) error {
+	t := reflect.ValueOf(value).Elem()
+	if proxy := ctx.getProxy(index); proxy != nil {
+		t.Set(reflect.ValueOf(proxy)) // return the value as is
+		return nil
+	}
+
+	js := ctx.JsonEncode(index)
+	if len(js) == 0 {
+		t.Set(reflect.Zero(t.Type()))
+		return nil
+	}
+
+	err := json.Unmarshal([]byte(js), value)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (ctx *Context) wrapFunction(f interface{}) func(ctx *duktape.Context) int {
 	tbaContext := ctx
 	return func(ctx *duktape.Context) int {

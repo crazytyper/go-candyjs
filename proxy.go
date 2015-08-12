@@ -41,6 +41,13 @@ func (p *proxy) Has(t interface{}, k string) bool {
 func (p *proxy) Get(t interface{}, k string, recv interface{}) (interface{}, error) {
 	f, err := p.getProperty(t, k)
 	if err != nil {
+		if k == "toJSON" {
+			// use GO's JSON marshalling for proxies
+			// e.g. time.Time will correctly be marshalled into an RFC3339 date/time string-
+			//      without this it would get "{}"
+			return p.jsonMarshaller(t), nil
+		}
+
 		if v, isInternal := internalKeys[k]; isInternal {
 			return v, nil
 		}
@@ -241,4 +248,21 @@ func castNumberToGoType(k reflect.Kind, v interface{}) (interface{}, bool) {
 	}
 
 	return v, true
+}
+
+func (p *proxy) jsonMarshaller(t interface{}) interface{} {
+	return func(val interface{}, key interface{}) interface{} {
+		js, err := json.Marshal(t)
+		if err != nil {
+			return t
+		}
+		// turn the JSON back into an object tree
+		// this is either a primitive type, map[string]interface{} or []interface{}
+		var v interface{}
+		err = json.Unmarshal(js, &v)
+		if err != nil {
+			return t
+		}
+		return v
+	}
 }
