@@ -12,7 +12,8 @@ const goProxyPtrProp = "\xff" + "goProxyPtrProp"
 
 // Context represents a Duktape thread and its call and value stacks.
 type Context struct {
-	storage *storage
+	storage     *storage
+	lastGoError error
 	*duktape.Context
 }
 
@@ -385,6 +386,11 @@ func (ctx *Context) GetValue(index int, value interface{}) error {
 	return nil
 }
 
+// LastGoError returns the last error returned by a GO function.
+func (ctx *Context) LastGoError() error {
+	return ctx.lastGoError
+}
+
 func (ctx *Context) wrapFunction(f interface{}) func(ctx *duktape.Context) int {
 	tbaContext := ctx
 	return func(ctx *duktape.Context) int {
@@ -529,8 +535,11 @@ func (ctx *Context) callFunction(f interface{}, args []reflect.Value) int {
 	out, err = ctx.handleReturnError(out)
 
 	if err != nil {
+		ctx.lastGoError = err
 		return duktape.ErrRetError
 	}
+
+	ctx.lastGoError = nil
 
 	if len(out) == 0 {
 		return 1
