@@ -558,27 +558,37 @@ func (s *CandySuite) TearDownTest(c *C) {
 	s.ctx.DestroyHeap()
 }
 
+type MyNestedStruct struct {
+	Name string `json:"name"`
+}
+
+func (m *MyNestedStruct) SayHello() string {
+	return fmt.Sprintf("Hello %s!", m.Name)
+}
+
 type MyStruct struct {
-	Bool    bool      `json:"bool"`
-	Int     int       `json:"int"`
-	Int8    int8      `json:"int8"`
-	Int16   int16     `json:"int16"`
-	Int32   int32     `json:"int32"`
-	Int64   int64     `json:"int64"`
-	UInt    uint      `json:"uInt"`
-	UInt8   uint8     `json:"uInt8"`
-	UInt16  uint16    `json:"uInt16"`
-	UInt32  uint32    `json:"uInt32"`
-	UInt64  uint64    `json:"uInt64"`
-	String  string    `json:"string"`
-	Bytes   []byte    `json:"bytes"`
-	Float32 float32   `json:"float32"`
-	Float64 float64   `json:"float64"`
-	Date    time.Time `json:"date"`
-	Empty   *MyStruct `json:"empty"`
-	Nested  *MyStruct `json:"nested"`
-	Slice   []int     `json:"slice"`
-	private int
+	Bool        bool                      `json:"bool"`
+	Int         int                       `json:"int"`
+	Int8        int8                      `json:"int8"`
+	Int16       int16                     `json:"int16"`
+	Int32       int32                     `json:"int32"`
+	Int64       int64                     `json:"int64"`
+	UInt        uint                      `json:"uInt"`
+	UInt8       uint8                     `json:"uInt8"`
+	UInt16      uint16                    `json:"uInt16"`
+	UInt32      uint32                    `json:"uInt32"`
+	UInt64      uint64                    `json:"uInt64"`
+	String      string                    `json:"string"`
+	Bytes       []byte                    `json:"bytes"`
+	Float32     float32                   `json:"float32"`
+	Float64     float64                   `json:"float64"`
+	Date        time.Time                 `json:"date"`
+	Empty       *MyStruct                 `json:"empty"`
+	Nested      *MyStruct                 `json:"nested"`
+	Slice       []int                     `json:"slice"`
+	StructSlice []MyNestedStruct          `json:"structSlice"`
+	StructMap   map[string]MyNestedStruct `json:"structMap"`
+	private     int
 }
 
 func (m *MyStruct) Multiply(x int) int {

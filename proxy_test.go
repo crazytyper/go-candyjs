@@ -18,6 +18,22 @@ func (s *CandySuite) TestProxy_Get(c *C) {
 	c.Assert(v, Equals, 42)
 }
 
+func (s *CandySuite) TestProxy_GetArrayOfProxies(c *C) {
+	v, err := p.Get(&MyStruct{StructSlice: []MyNestedStruct{{Name: "world"}}}, "structSlice", nil)
+	c.Assert(err, IsNil)
+	c.Assert(v, DeepEquals, []MyNestedStruct{{Name: "world"}})
+}
+
+func (s *CandySuite) TestProxy_GetMapOfProxies(c *C) {
+	v, err := p.Get(&MyStruct{
+		StructMap: map[string]MyNestedStruct{
+			"Salutation": {Name: "world"},
+		},
+	}, "structMap", nil)
+	c.Assert(err, IsNil)
+	c.Assert(v, DeepEquals, map[string]MyNestedStruct{"Salutation": {Name: "world"}})
+}
+
 func (s *CandySuite) TestProxy_GetUndefinedProperty(c *C) {
 	v, err := p.Get(&MyStruct{Int: 42}, "foo", nil)
 	c.Assert(err, Equals, ErrUndefinedProperty)
@@ -72,7 +88,7 @@ func (s *CandySuite) TestProxy_Enumerate(c *C) {
 	c.Assert(keys, DeepEquals, []string{
 		"bool", "int", "int8", "int16", "int32", "int64", "uInt", "uInt8",
 		"uInt16", "uInt32", "uInt64", "string", "bytes", "float32", "float64", "date",
-		"empty", "nested", "slice", "multiply",
+		"empty", "nested", "slice", "structSlice", "structMap", "multiply",
 	})
 }
 

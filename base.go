@@ -279,7 +279,29 @@ func (ctx *Context) pushValue(v reflect.Value) error {
 			return nil
 		}
 
-		fallthrough
+		arr := ctx.PushArray()
+		for i := 0; i < v.Len(); i++ {
+			av := v.Index(i)
+			if err := ctx.pushValue(av); err != nil {
+				return err
+			}
+			ctx.PutPropIndex(arr, uint(i))
+		}
+		return nil
+
+	case reflect.Map:
+		obj := ctx.PushObject()
+		for _, key := range v.MapKeys() {
+			if err := ctx.pushValue(key); err != nil {
+				return err
+			}
+			if err := ctx.pushValue(v.MapIndex(key)); err != nil {
+				return err
+			}
+			ctx.PutProp(obj)
+		}
+		return nil
+
 	default:
 		js, err := json.Marshal(v.Interface())
 		if err != nil {

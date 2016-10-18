@@ -121,13 +121,10 @@ func (p *proxy) getValueFromKindPtr(key string, v reflect.Value) (reflect.Value,
 
 func (p *proxy) getValueFromKindStruct(key string, v reflect.Value) (reflect.Value, bool) {
 	var r reflect.Value
-	for _, name := range nameToGo(key) {
-		r = v.FieldByName(name)
-		if r.IsValid() {
-			break
-		}
+	fieldName := nameToFieldName(v, key)
+	if fieldName != "" {
+		r = v.FieldByName(fieldName)
 	}
-
 	return r, r.IsValid()
 }
 
@@ -168,12 +165,9 @@ func (p *proxy) getPropertyNames(t interface{}) ([]string, error) {
 	case reflect.Struct:
 		cFields := v.NumField()
 		for i := 0; i < cFields; i++ {
-			fieldName := v.Type().Field(i).Name
-			if !isExported(fieldName) {
-				continue
+			if name := fieldToName(v.Type().Field(i)); name != "" {
+				names = append(names, name)
 			}
-
-			names = append(names, nameToJavaScript(fieldName))
 		}
 	}
 
