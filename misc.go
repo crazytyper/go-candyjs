@@ -49,35 +49,53 @@ func nameToGo(name string) []string {
 	}
 }
 
-func nameToFieldName(v reflect.Value, name string) string {
-	hasJsonTags := false
-	fieldName := ""
-	// find a field matching "json" field tag
-	for i := 0; i < v.NumField(); i++ {
-		f := v.Type().Field(i)
-		if !isExported(f.Name) {
-			continue
-		}
-		jsonName := parseJsonTag(f.Tag.Get("json"))
-		if jsonName == name {
-			return f.Name
-		} else if jsonName != "" {
-			hasJsonTags = true
-		} else if f.Name == name {
-			fieldName = name
-		}
-	}
-	if !hasJsonTags {
-		// do a fuzzy search using "tcpPort" => ["TcpPort", "TCPPort"]
-		for _, goName := range nameToGo(name) {
-			f := v.FieldByName(goName)
-			if f.IsValid() {
-				return goName
-			}
-		}
+func nameToFieldName(t reflect.Type, name string) string {
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	} else if t.Kind() != reflect.Struct {
 		return ""
 	}
-	return fieldName
+
+	// find a field matching "json" field tag
+	if hasJsonTags(t) {
+		return nameToFieldNameByJsonTag(t, name)
+	}
+
+	// do a fuzzy search using "tcpPort" => ["TcpPort", "TCPPort"]
+	for _, goName := range nameToGo(name) {
+		if f, ok := t.FieldByName(goName); ok {
+			return f.Name
+		}
+	}
+	return ""
+}
+
+func hasJsonTags(t reflect.Type) bool {
+	for i := 0; i < t.NumField(); i++ {
+		if t.Field(i).Tag.Get("json") != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func nameToFieldNameByJsonTag(t reflect.Type, name string) string {
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+		if !isExported(f.Name) {
+			// ignore
+		} else if f.Anonymous {
+			if n := nameToFieldName(f.Type, name); n != "" { // <-- recursive
+				return n
+			}
+		} else {
+			n := parseJsonTag(f.Tag.Get("json"))
+			if (n != "" && n == name) || (n == "" && name == f.Name) {
+				return f.Name
+			}
+		}
+	}
+	return ""
 }
 
 func fieldToName(f reflect.StructField) string {
@@ -89,6 +107,32 @@ func fieldToName(f reflect.StructField) string {
 		name = nameToJavaScript(f.Name)
 	}
 	return name
+}
+
+// visitFields visits all fields of a type including fields of nested types (recursively).
+func visitFields(t reflect.Type, fn func(f reflect.StructField) bool) bool {
+	switch t.Kind() {
+	case reflect.Ptr:
+		t = t.Elem()
+	case reflect.Struct:
+		// do nothing
+	default:
+		return false
+	}
+
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+		if isExported(f.Name) {
+			if f.Anonymous {
+				if visitFields(f.Type, fn) {
+					return true
+				}
+			} else if fn(f) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // parseJsonTag parses the name part out of a json tag

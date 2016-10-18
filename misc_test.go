@@ -35,7 +35,7 @@ func (s *CandySuite) TestNameToFieldName(c *C) {
 		FieldA string `json:"fielda"`
 		FieldB string
 	}
-	d := reflect.ValueOf(structWithTags{})
+	d := reflect.TypeOf(structWithTags{})
 	c.Assert(nameToFieldName(d, "fielda"), Equals, "FieldA")
 	c.Assert(nameToFieldName(d, "fieldA"), Equals, "")
 	c.Assert(nameToFieldName(d, "fieldB"), Equals, "")
@@ -45,7 +45,7 @@ func (s *CandySuite) TestNameToFieldName(c *C) {
 		FieldA string
 		FIELDB string
 	}
-	d = reflect.ValueOf(structWithoutTags{})
+	d = reflect.TypeOf(structWithoutTags{})
 	c.Assert(nameToFieldName(d, "fieldA"), Equals, "FieldA")
 	c.Assert(nameToFieldName(d, "fieldB"), Equals, "FIELDB")
 }

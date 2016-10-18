@@ -121,7 +121,7 @@ func (p *proxy) getValueFromKindPtr(key string, v reflect.Value) (reflect.Value,
 
 func (p *proxy) getValueFromKindStruct(key string, v reflect.Value) (reflect.Value, bool) {
 	var r reflect.Value
-	fieldName := nameToFieldName(v, key)
+	fieldName := nameToFieldName(v.Type(), key)
 	if fieldName != "" {
 		r = v.FieldByName(fieldName)
 	}
@@ -163,12 +163,10 @@ func (p *proxy) getPropertyNames(t interface{}) ([]string, error) {
 			return nil, err
 		}
 	case reflect.Struct:
-		cFields := v.NumField()
-		for i := 0; i < cFields; i++ {
-			if name := fieldToName(v.Type().Field(i)); name != "" {
-				names = append(names, name)
-			}
-		}
+		visitFields(v.Type(), func(f reflect.StructField) bool {
+			names = append(names, fieldToName(f))
+			return false
+		})
 	}
 
 	mCount := v.NumMethod()

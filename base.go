@@ -264,6 +264,7 @@ func (ctx *Context) pushValue(v reflect.Value) error {
 		ctx.PushString(v.String())
 	case reflect.Struct:
 		ctx.PushProxy(v.Interface())
+
 	case reflect.Func:
 		ctx.PushGoFunction(v.Interface())
 	case reflect.Ptr:
