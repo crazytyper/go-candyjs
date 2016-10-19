@@ -109,7 +109,7 @@ func fieldToName(f reflect.StructField) string {
 	return name
 }
 
-// visitFields visits all fields of a type including fields of nested types (recursively).
+// visitFields visits all fields of a type including fields of embedded types (recursively).
 func visitFields(t reflect.Type, fn func(f reflect.StructField) bool) bool {
 	switch t.Kind() {
 	case reflect.Ptr:
