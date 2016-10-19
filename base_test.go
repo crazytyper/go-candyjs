@@ -503,7 +503,7 @@ func (s *CandySuite) TestPushGlobalGoFunction_Error(c *C) {
 }
 
 func (s *CandySuite) TestJsonEncode(c *C) {
-	ms := &MyStruct{Date: time.Date(1984, 12, 24, 0, 0, 0, 0, time.UTC), Int: 142, Float64: 3.141596254}
+	ms := &MyStruct{Date: time.Date(1984, 12, 24, 1, 2, 3, 456*int(time.Millisecond), time.UTC), Int: 142, Float64: 3.141596254}
 	s.ctx.PushGlobalProxy("test", ms)
 
 	cases := []string{
@@ -513,7 +513,7 @@ func (s *CandySuite) TestJsonEncode(c *C) {
 		`({ date: test.date, int: test.int, float64: test.float64 })`,
 		// serialize proxy directly.
 		`(function() {
-			test.date = new Date(Date.UTC(1984,11,24))
+			test.date = new Date(Date.UTC(1984,11,24,1,2,3,456))
 			return test
 		})()`}
 	for _, cs := range cases {
@@ -522,7 +522,7 @@ func (s *CandySuite) TestJsonEncode(c *C) {
 		js := s.ctx.JsonEncode(-1)
 		s.ctx.Pop()
 
-		c.Assert(js, Matches, ".*\"date\":\"1984-12-24T00:00:00Z\".*")
+		c.Assert(js, Matches, ".*\"date\":\"1984-12-24T01:02:03.456Z\".*")
 		c.Assert(js, Matches, ".*\"int\":142.*")
 		c.Assert(js, Matches, ".*\"float64\":3.141596254.*")
 	}
@@ -532,7 +532,7 @@ func (s *CandySuite) TestCustomProxy(c *C) {
 	customProxy := &myCustomProxy{values: map[string]interface{}{
 		"name":     "John",
 		"shoeSize": 40,
-		"dob":      time.Date(1980, 7, 31, 0, 0, 0, 0, time.UTC),
+		"dob":      time.Date(1980, 7, 31, 1, 2, 3, 456*int(time.Millisecond), time.UTC),
 	}}
 	s.ctx.PushGlobalProxy("customProxy", customProxy)
 
@@ -540,7 +540,7 @@ func (s *CandySuite) TestCustomProxy(c *C) {
 		customProxy.name += " Doe"
 		customProxy.shoeSize += 2.5
 
-		var d = new Date(customProxy.dob.unix() * 1000)
+		var d = customProxy.dob;
 		d.setFullYear(1984)
 		customProxy.dob = d
 	`), IsNil)
@@ -548,10 +548,10 @@ func (s *CandySuite) TestCustomProxy(c *C) {
 	c.Assert(customProxy.calls, DeepEquals, []string{
 		"get(name)", "set(name,John Doe)",
 		"get(shoeSize)", "set(shoeSize,42.5)",
-		"get(dob)", "set(dob,1984-07-31T00:00:00.000Z)"})
+		"get(dob)", "set(dob,1984-07-31T01:02:03.456Z)"})
 	c.Assert(customProxy.values["name"], Equals, "John Doe")
 	c.Assert(customProxy.values["shoeSize"], Equals, 42.5)
-	c.Assert(customProxy.values["dob"], Equals, "1984-07-31T00:00:00.000Z")
+	c.Assert(customProxy.values["dob"], Equals, "1984-07-31T01:02:03.456Z")
 }
 
 func (s *CandySuite) TearDownTest(c *C) {

@@ -3,6 +3,7 @@ package candyjs
 import (
 	"encoding/json"
 	"reflect"
+	"time"
 	"unsafe"
 
 	"github.com/olebedev/go-duktape"
@@ -263,7 +264,18 @@ func (ctx *Context) pushValue(v reflect.Value) error {
 	case reflect.String:
 		ctx.PushString(v.String())
 	case reflect.Struct:
-		ctx.PushProxy(v.Interface())
+		switch i := v.Interface().(type) {
+		case time.Time:
+			// new Date(...)
+			ctx.PushGlobalObject()
+			ctx.GetPropString(-1, "Date")
+			ctx.PushNumber(float64(i.Unix()*1000 + int64(i.Nanosecond()/int(time.Millisecond))))
+			ctx.New(1)
+			ctx.Remove(-2) // remove the global object from the stack
+
+		default:
+			ctx.PushProxy(v.Interface())
+		}
 
 	case reflect.Func:
 		ctx.PushGoFunction(v.Interface())
