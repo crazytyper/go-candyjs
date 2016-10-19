@@ -108,7 +108,7 @@ func (c *CmdImport) getPackagePath(pkgName string) (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("package %q not found", pkgName)
+	return "", errorf(ErrorCodePackageNotFound, "package %q not found", pkgName)
 }
 
 func (c *CmdImport) render(objs map[string]*ast.Object) error {

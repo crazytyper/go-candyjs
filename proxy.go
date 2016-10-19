@@ -3,13 +3,8 @@ package candyjs
 import "C"
 import (
 	"encoding/json"
-	"errors"
 	"reflect"
 )
-
-// ErrUndefinedProperty is throw when a property for a given proxied object on
-// javascript cannot be found, basically a valid method or field cannot found.
-var ErrUndefinedProperty = errors.New("undefined property")
 
 var (
 	p = &proxy{}
@@ -35,7 +30,7 @@ type proxy struct{}
 
 func (p *proxy) Has(t interface{}, k string) bool {
 	_, err := p.getProperty(t, k)
-	return err != ErrUndefinedProperty
+	return err == nil
 }
 
 func (p *proxy) Get(t interface{}, k string, recv interface{}) (interface{}, error) {
@@ -85,7 +80,7 @@ func (p *proxy) getProperty(t interface{}, key string) (reflect.Value, error) {
 	v := reflect.ValueOf(t)
 	r, found := p.getValueFromKind(key, v)
 	if !found {
-		return r, ErrUndefinedProperty
+		return r, errorf(ErrorCodeUndefinedProperty, "Undefined property %p on type %T", key, t)
 	}
 
 	return r, nil

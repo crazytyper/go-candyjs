@@ -36,7 +36,7 @@ func (s *CandySuite) TestProxy_GetMapOfProxies(c *C) {
 
 func (s *CandySuite) TestProxy_GetUndefinedProperty(c *C) {
 	v, err := p.Get(&MyStruct{Int: 42}, "foo", nil)
-	c.Assert(err, Equals, ErrUndefinedProperty)
+	c.Assert(ErrorCode(err), Equals, ErrorCodeUndefinedProperty)
 	c.Assert(v, Equals, nil)
 }
 
