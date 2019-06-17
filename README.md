@@ -1,20 +1,26 @@
-go-candyjs [![Build Status](https://travis-ci.org/mcuadros/go-candyjs.png?branch=master)](https://travis-ci.org/mcuadros/go-candyjs) [![Coverage Status](https://coveralls.io/repos/mcuadros/go-candyjs/badge.svg?branch=master)](https://coveralls.io/r/mcuadros/go-candyjs?branch=master) [![GoDoc](http://godoc.org/github.com/mcuadros/go-candyjs?status.png)](http://godoc.org/github.com/mcuadros/go-candyjs) [![GitHub release](https://img.shields.io/github/release/mcuadros/go-candyjs.svg)](https://github.com/mcuadros/go-candyjs/releases)
-==========
-
 *CandyJS* is an intent of create a fully **transparent bridge between Go and the
 JavaScript** engine [duktape](http://duktape.org/). Basicly is a syntax-sugar
-library built it on top of [go-duktape](https://github.com/olebedev/go-duktape)
+library built it on top of [go-duktape](https://github.com/crazytyper/go-duktape)
 using reflection techniques.
+
+This is a fork of https://github.com/mcuadros/go-candyjs.
+
+It encodes UTF-8 strings passed to duktape into [CESU-8](https://github.com/svaarala/duktape/blob/master/doc/utf8-internal-representation.rst).
+
+It decodes strings returned by duktape from [CESU-8](https://github.com/svaarala/duktape/blob/master/doc/utf8-internal-representation.rst) into UTF-8.
+
+It uses https://github.com/crazytyper/go-cesu8 to encode/decode CESU-8.
+
 
 #### ok but what for ...
 
 build extensible applications that allow to the user **execute** arbitrary
-**code** (let's say plugins) **without** the requirement of **compile** it. 
+**code** (let's say plugins) **without** the requirement of **compile** it.
 
 Demo
 ----
 
-[![asciicast](https://raw.githubusercontent.com/mcuadros/go-candyjs/master/examples/demo/cast.gif)](https://asciinema.org/a/21430)
+[![asciicast](https://raw.githubusercontent.com/crazytyper/go-candyjs/master/examples/demo/cast.gif)](https://asciinema.org/a/21430)
 
 Features
 --------
@@ -23,7 +29,7 @@ Embeddable **Ecmascript E5/E5.1 compliant** engine ([duktape](http://duktape.org
 ctx := candyjs.NewContext()
 ctx.EvalString(`
   function factorial(n) {
-    if (n === 0) return 1;    
+    if (n === 0) return 1;
     return n * factorial(n - 1);
   }
 
@@ -76,7 +82,7 @@ Installation
 The recommended way to install go-candyjs is:
 
 ```
-go get -u github.com/mcuadros/go-candyjs/...
+go get -u github.com/crazytyper/go-candyjs/...
 ```
 
 > *CandyJS* includes a binary tool used by [go generate](http://blog.golang.org/generate),
@@ -86,12 +92,12 @@ please be sure that `$GOPATH/bin` is on your `$PATH`
 Examples
 --------
 
-### JavaScript running a HTTP server 
+### JavaScript running a HTTP server
 
 In this example a [`gin`](https://github.com/gin-gonic/gin) server is executed
 and a small JSON is server. In CandyJS you can import Go packages directly if
-they are [defined](https://github.com/mcuadros/go-candyjs/blob/master/examples/complex/main.go#L10:L13)
-previously on the Go code. 
+they are [defined](https://github.com/crazytyper/go-candyjs/blob/master/examples/complex/main.go#L10:L13)
+previously on the Go code.
 
 **Interpreter code** (`main.go`)
 

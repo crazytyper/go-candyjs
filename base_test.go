@@ -32,13 +32,13 @@ func (s *CandySuite) TestPushGlobalCandyJSObject(c *C) {
 	c.Assert(s.stored, Equals, "[object Object]")
 
 	c.Assert(s.ctx.PevalString(`store(CandyJS._call.toString())`), IsNil)
-	c.Assert(s.stored, Equals, "function anon() {/* ecmascript */}")
+	c.Assert(s.stored, Equals, "function () { [ecmascript code] }")
 
 	c.Assert(s.ctx.PevalString(`store(CandyJS.proxy.toString())`), IsNil)
-	c.Assert(s.stored, Equals, "function anon() {/* ecmascript */}")
+	c.Assert(s.stored, Equals, "function () { [ecmascript code] }")
 
 	c.Assert(s.ctx.PevalString(`store(CandyJS.require.toString())`), IsNil)
-	c.Assert(s.stored, Equals, "function anon() {/* native */}")
+	c.Assert(s.stored, Equals, "function () { [native code] }")
 }
 
 func (s *CandySuite) TestPushGlobalCandyJSObject_Require(c *C) {
@@ -554,6 +554,148 @@ func (s *CandySuite) TestCustomProxy(c *C) {
 	c.Assert(customProxy.values["dob"], Equals, "1984-07-31T01:02:03.456Z")
 }
 
+type MyTimeStruct struct {
+	MyTime MyTime `json:"myTime"`
+}
+type MyTime time.Time
+
+func (t MyTime) MarshalJSON() ([]byte, error) {
+	return time.Time(t).MarshalJSON()
+}
+func (t *MyTime) UnmarshalJSON(data []byte) error {
+	tt := time.Time{}
+	if err := tt.UnmarshalJSON(data); err != nil {
+		return err
+	}
+	*t = MyTime(tt)
+	return nil
+}
+
+func (s *CandySuite) TestGlobalStructTimeAlias(c *C) {
+	m := &MyTimeStruct{
+		MyTime: MyTime(time.Date(1984, 12, 24, 1, 2, 3, 456*int(time.Millisecond), time.UTC)),
+	}
+	s.ctx.PushGlobalProxy("struct", m)
+
+	// time alias can be used like a normal date in js
+	err := s.ctx.PevalString(`store(struct.myTime.getFullYear())`)
+	c.Assert(err, IsNil)
+	c.Assert(s.stored, Equals, 1984.0)
+
+	// setting a new date directly on the struct works
+	// note: setting it on the struct requires UnmarshalJSON on the type alias
+	err = s.ctx.PevalString(`struct.myTime = new Date("2014-10-30T09:03:34.141Z")`)
+	c.Assert(err, IsNil)
+	c.Assert(time.Time(m.MyTime).Year(), Equals, 2014)
+	c.Assert(time.Time(m.MyTime).Day(), Equals, 30)
+
+	// updating the value in js and setting it on the struct works
+	// note: setting it on the struct requires UnmarshalJSON on the type alias
+	err = s.ctx.PevalString(`
+		var d = struct.myTime;
+		d.setFullYear(2000);
+		struct.myTime = d;
+	`)
+	c.Assert(err, IsNil)
+	c.Assert(time.Time(m.MyTime).Year(), Equals, 2000)
+}
+
+func (s *CandySuite) TestCallback(c *C) {
+	s.ctx.PushGlobalGoFunction(
+		"fnWithCallback",
+		func(cb func(s string) string) string {
+			return "Hello " + cb("world")
+		})
+
+	c.Assert(s.ctx.PevalString(`store(fnWithCallback(
+				function(s) {
+					return s + "!";
+				}));`), IsNil)
+	c.Assert(s.stored, Equals, "Hello world!")
+}
+
+func (s *CandySuite) TestCallbackThrows(c *C) {
+	s.ctx.PushGlobalGoFunction(
+		"fnWithCallbackError",
+		func(cb func(s string) error) string {
+			err := cb("foo")
+			if err != nil {
+				return err.Error()
+			}
+			return ""
+		})
+	s.ctx.PushGlobalGoFunction(
+		"fnWithCallbackStringError",
+		func(cb func(s string) (string, error)) string {
+			s, err := cb("foo")
+			if err != nil {
+				return err.Error()
+			}
+			return s
+		})
+	s.ctx.PushGlobalGoFunction(
+		"fnWithCallbackStringString",
+		func(cb func(s string) (string, string)) string {
+			s1, s2 := cb("foo")
+			return s1 + " " + s2
+		})
+	s.ctx.PushGlobalGoFunction(
+		"fnWithCallbackStringErrorMultiple",
+		func(cb func(s string) (string, error)) string {
+			str := ""
+			for {
+				var err error
+				str, err = cb(str)
+				if err != nil {
+					return err.Error()
+				}
+			}
+		})
+
+	c.Assert(s.ctx.PevalString(`store(fnWithCallbackError(
+				function(s) {
+					throw new Error(s);
+				}));`), IsNil)
+	c.Assert(s.stored, Equals, "Error: foo")
+
+	c.Assert(s.ctx.PevalString(`store(fnWithCallbackStringError(
+				function(s) {
+					throw new Error(s);
+				}));`), IsNil)
+	c.Assert(s.stored, Equals, "Error: foo")
+
+	c.Assert(s.ctx.PevalString(`store(fnWithCallbackStringString(
+				function(s) {
+					return ["foo", "bar"]
+				}));`), IsNil)
+	c.Assert(s.stored, Equals, "foo bar")
+
+	// call a function multiple times before throwing an error
+	c.Assert(s.ctx.PevalString(`store(fnWithCallbackStringErrorMultiple(
+				function(s) {
+					if (s === "aaa") {
+						throw new Error(s);
+					}
+					return s + "a";
+				}));`), IsNil)
+	c.Assert(s.stored, Equals, "Error: aaa")
+
+	// call a function inside another function before throwing an error
+	c.Assert(s.ctx.PevalString(`store(fnWithCallbackStringErrorMultiple(
+				function(s) {
+					if (s === "foo bar/foo bar/foo bar") {
+						throw new Error(s);
+					}
+
+					var result = fnWithCallbackStringString(function(s) {
+						return [s, "bar"]
+					});
+
+					return (s ? s + "/" : "") + result;
+				}));`), IsNil)
+	c.Assert(s.stored, Equals, "Error: foo bar/foo bar/foo bar")
+}
+
 func (s *CandySuite) TearDownTest(c *C) {
 	s.ctx.DestroyHeap()
 }
@@ -628,4 +770,20 @@ func (p *myCustomProxy) Enumerate(t interface{}) (interface{}, error) {
 	}
 	p.calls = append(p.calls, "enumerate()")
 	return keys, nil
+}
+
+func (s *CandySuite) TestErrorFactory(c *C) {
+	s.ctx.SetErrorFactory(
+		func(ctx *Context, index int) error {
+			return fmt.Errorf(">%s<", ctx.SafeToString(index))
+		})
+
+	var actualErr error
+	s.ctx.PushGlobalGoFunction("test",
+		func(cb func() error) {
+			actualErr = cb()
+		})
+
+	c.Assert(s.ctx.PevalString(`test(function() { throw new Error("Deliberate error"); });`), IsNil)
+	c.Assert(actualErr.Error(), Equals, ">Error: Deliberate error<")
 }

@@ -1,0 +1,12 @@
+github.com/crazytyper/go-cesu8 v0.0.0-20190615112902-270517b5a01c h1:LslEy3hCBNp2TfgmcmJBIIAprB51yH+AIBC3kVDxlGc=
+github.com/crazytyper/go-cesu8 v0.0.0-20190615112902-270517b5a01c/go.mod h1:eWhedTyAcrUdtMYyEjm6HmjjwSGRre54xWeBBZGhhYc=
+github.com/crazytyper/go-duktape v0.0.0-20190617090041-509af245d450 h1:IFI12lzaCZxP7ZqABcpi/RC1PL+o/VKtPxADGzmD8EA=
+github.com/crazytyper/go-duktape v0.0.0-20190617090041-509af245d450/go.mod h1:xNtclhdAtkl3BCS2OhnTbUOeZGjTzdyPFE6cLEFO5+Q=
+github.com/kr/pretty v0.1.0 h1:L/CwN0zerZDmRFUapSPitk6f+Q3+0za1rQkzVuMiMFI=
+github.com/kr/pretty v0.1.0/go.mod h1:dAy3ld7l9f0ibDNOQOHHMYYIIbhfbHSm3C4ZsoJORNo=
+github.com/kr/pty v1.1.1/go.mod h1:pFQYn66WHrOpPYNljwOMqo10TkYh1fy3cYio2l3bCsQ=
+github.com/kr/text v0.1.0 h1:45sCR5RtlFHMR4UwH9sdQ5TC8v0qDQCHnXt+kaKSTVE=
+github.com/kr/text v0.1.0/go.mod h1:4Jbv+DJW3UT/LiOwJeYQe1efqtUx/iVham/4vfdArNI=
+gopkg.in/check.v1 v1.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
+gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 h1:qIbj1fsPNlZgppZ+VLlY7N33q108Sa+fhmuc+sWQYwY=
+gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=

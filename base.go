@@ -2,19 +2,25 @@ package candyjs
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"reflect"
 	"time"
 	"unsafe"
 
-	"github.com/olebedev/go-duktape"
+	"github.com/crazytyper/go-cesu8"
+	"github.com/crazytyper/go-duktape"
 )
 
 const goProxyPtrProp = "\xff" + "goProxyPtrProp"
 
+var typeTime = reflect.TypeOf(time.Time{})
+
 // Context represents a Duktape thread and its call and value stacks.
 type Context struct {
-	storage     *storage
-	lastGoError error
+	storage      *storage
+	lastGoError  error
+	errorFactory ErrorFactoryFunc
 	*duktape.Context
 }
 
@@ -25,6 +31,15 @@ func NewContext() *Context {
 	ctx.pushGlobalCandyJSObject()
 
 	return ctx
+}
+
+// ErrorFactoryFunc ...
+type ErrorFactoryFunc func(ctx *Context, index int) error
+
+// SetErrorFactory sets the function used to create go errors from Javascript execptions.
+// By default `errors.New(execption.toString())` will be used.
+func (ctx *Context) SetErrorFactory(f ErrorFactoryFunc) {
+	ctx.errorFactory = f
 }
 
 func (ctx *Context) pushGlobalCandyJSObject() {
@@ -262,8 +277,14 @@ func (ctx *Context) pushValue(v reflect.Value) error {
 	case reflect.Float64:
 		ctx.PushNumber(v.Float())
 	case reflect.String:
-		ctx.PushString(v.String())
+		ctx.PushString(string(cesu8.EncodeString(v.String())))
 	case reflect.Struct:
+		// also use `Date` for `time.Time` aliases
+		tv := v.Type()
+		if tv != typeTime && tv.ConvertibleTo(typeTime) {
+			v = v.Convert(typeTime)
+		}
+
 		switch i := v.Interface().(type) {
 		case time.Time:
 			// new Date(...)
@@ -274,7 +295,7 @@ func (ctx *Context) pushValue(v reflect.Value) error {
 			ctx.Remove(-2) // remove the global object from the stack
 
 		default:
-			ctx.PushProxy(v.Interface())
+			ctx.PushProxy(i)
 		}
 
 	case reflect.Func:
@@ -321,7 +342,7 @@ func (ctx *Context) pushValue(v reflect.Value) error {
 			return err
 		}
 
-		ctx.PushString(string(js))
+		ctx.PushString(string(cesu8.EncodeString(string(js))))
 		ctx.JsonDecode(-1)
 	}
 
@@ -426,6 +447,13 @@ func (ctx *Context) LastGoError() error {
 	return ctx.lastGoError
 }
 
+// ConsumeLastGoError returns the last error returned by a GO function and clears it.
+func (ctx *Context) ConsumeLastGoError() error {
+	err := ctx.lastGoError
+	ctx.lastGoError = nil
+	return err
+}
+
 func (ctx *Context) wrapFunction(f interface{}) func(ctx *duktape.Context) int {
 	tbaContext := ctx
 	return func(ctx *duktape.Context) int {
@@ -474,8 +502,39 @@ func (ctx *Context) getValueFromContext(index int, t reflect.Type) reflect.Value
 		return reflect.ValueOf(proxy)
 	}
 
+	if ctx.IsFunction(index) && t.Kind() == reflect.Func {
+		return reflect.MakeFunc(t,
+			func(args []reflect.Value) (results []reflect.Value) {
+				// Bring the function back to the top of the stack
+				ctx.Dup(index)
+
+				// Followed by the arguments passed to it
+				for _, v := range args {
+					if err := ctx.pushValue(v); err != nil {
+						ctx.PushUndefined()
+					}
+				}
+
+				// Pcall replaces the function and args on the stack with the return value.
+				// Be a good citizen and clear the return value from the stack.
+				// http://duktape.org/api.html#duk_pcall
+				defer ctx.Pop()
+
+				if ret := ctx.Pcall(len(args)); ret != duktape.ExecSuccess {
+					return ctx.getCallResultError(t, ctx.getError(-1))
+				}
+
+				return ctx.getCallResult(t)
+			},
+		)
+	}
+
 	if ctx.IsPointer(index) {
 		return ctx.getFunction(index, t)
+	}
+
+	if ctx.IsError(index) && t.Kind() == reflect.Interface {
+		return reflect.ValueOf(ctx.getError(index))
 	}
 
 	return ctx.getValueUsingJSON(index, t)
@@ -492,6 +551,14 @@ func (ctx *Context) getProxy(index int) interface{} {
 	}
 
 	return ctx.storage.get(ptr)
+}
+
+func (ctx *Context) getError(index int) error {
+	factory := ctx.errorFactory
+	if factory != nil {
+		return factory(ctx, index)
+	}
+	return errors.New(ctx.SafeToString(index))
 }
 
 func (ctx *Context) getFunction(index int, t reflect.Type) reflect.Value {
@@ -518,23 +585,58 @@ func (ctx *Context) wrapDuktapePointer(
 }
 
 func (ctx *Context) getCallResult(t reflect.Type) []reflect.Value {
-	var result []reflect.Value
+	count := t.NumOut()
+	result := make([]reflect.Value, 0, count)
+	if count <= 0 {
+		return result
+	}
 
-	oCount := t.NumOut()
-	if oCount == 1 {
+	lastOut := t.Out(count - 1)
+	hasErrorArg := lastOut.Implements(errorInterface)
+	if hasErrorArg {
+		count--
+	}
+
+	if count == 0 {
+		// returns just an error
+	} else if count == 1 {
 		result = append(result, ctx.getValueFromContext(-1, t.Out(0)))
-	} else if oCount > 1 {
-		if ctx.GetLength(-1) != oCount {
-			panic("Invalid count of return value on proxied function.")
+	} else {
+		actualCount := ctx.GetLength(-1)
+		if actualCount != count {
+			panic(fmt.Sprintf("Invalid count of return value on proxied function. Expected %d had %d", actualCount, count))
 		}
 
 		idx := ctx.NormalizeIndex(-1)
-		for i := 0; i < oCount; i++ {
+		for i := 0; i < count; i++ {
 			ctx.GetPropIndex(idx, uint(i))
 			result = append(result, ctx.getValueFromContext(-1, t.Out(i)))
 		}
 	}
+	if hasErrorArg {
+		result = append(result, reflect.Zero(lastOut))
+	}
+	return result
+}
 
+var errorInterface = reflect.TypeOf((*error)(nil)).Elem()
+
+func (ctx *Context) getCallResultError(t reflect.Type, err error) []reflect.Value {
+	count := t.NumOut()
+	if count < 1 {
+		panic(err)
+	}
+
+	out := t.Out(count - 1)
+	if !out.Implements(errorInterface) {
+		panic(err)
+	}
+
+	result := make([]reflect.Value, count)
+	for i := 0; i < count-1; i++ {
+		result[i] = reflect.Zero(t.Out(i))
+	}
+	result[count-1] = reflect.ValueOf(&err).Elem()
 	return result
 }
 
@@ -565,6 +667,8 @@ func (ctx *Context) getValueUsingJSON(index int, t reflect.Type) reflect.Value {
 }
 
 func (ctx *Context) callFunction(f interface{}, args []reflect.Value) int {
+	ctx.lastGoError = nil
+
 	var err error
 	out := reflect.ValueOf(f).Call(args)
 	out, err = ctx.handleReturnError(out)

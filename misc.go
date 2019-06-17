@@ -30,6 +30,9 @@ func nameToJavaScript(name string) string {
 }
 
 func nameToGo(name string) []string {
+	if len(name) == 0 {
+		return nil
+	}
 	if name[0] >= 'A' && name[0] <= 'Z' {
 		return nil
 	}

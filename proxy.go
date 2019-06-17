@@ -13,7 +13,8 @@ var (
 	//throw an error, the value of the map is the value returned when this keys
 	//are requested.
 	internalKeys = map[string]interface{}{
-		"toJSON": nil, "valueOf": nil,
+		"toJSON": nil,
+		"valueOf": nil,
 		"toString": func() string { return "[candyjs Proxy]" },
 	}
 )
@@ -34,6 +35,10 @@ func (p *proxy) Has(t interface{}, k string) bool {
 }
 
 func (p *proxy) Get(t interface{}, k string, recv interface{}) (interface{}, error) {
+	if k == "" {
+		k = "valueOf" // <- internal property
+	}
+
 	f, err := p.getProperty(t, k)
 	if err != nil {
 		if k == "toJSON" {
@@ -80,7 +85,7 @@ func (p *proxy) getProperty(t interface{}, key string) (reflect.Value, error) {
 	v := reflect.ValueOf(t)
 	r, found := p.getValueFromKind(key, v)
 	if !found {
-		return r, errorf(ErrorCodeUndefinedProperty, "Undefined property %p on type %T", key, t)
+		return r, errorf(ErrorCodeUndefinedProperty, "Undefined property %q on type %T", key, t)
 	}
 
 	return r, nil
